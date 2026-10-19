@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수업 활동 보고서</title>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#EEF2F5;color:#1B2A38;padding:24px 16px 60px;
+     font-family:'맑은 고딕','Malgun Gothic',sans-serif;line-height:1.6;}
+.box{max-width:560px;margin:0 auto;background:#fff;border-radius:16px;
+     padding:26px 24px;box-shadow:0 10px 30px rgba(0,0,0,.08);}
+.rail{display:flex;gap:6px;margin-bottom:18px;}
+.seg{flex:1;height:6px;border-radius:99px;background:#DDE4E9;}
+.seg.on{background:#065A82;}
+h1{font-size:21px;margin:0 0 6px;} p.s{color:#667;font-size:14px;margin:0 0 18px;}
+label{display:block;font-weight:700;font-size:14px;margin:16px 0 6px;}
+input,textarea{width:100%;padding:12px;border:1.5px solid #CFD8DE;border-radius:10px;
+     font-size:16px;font-family:inherit;}
+textarea{min-height:130px;}
+.up{border:2px dashed #CFD8DE;border-radius:12px;padding:22px;text-align:center;
+     cursor:pointer;background:#FAFCFD;}
+.up:hover{border-color:#065A82;}
+.up input{display:none;}
+#prev{max-width:100%;border-radius:10px;margin-top:12px;display:none;}
+.btns{display:flex;gap:10px;margin-top:22px;}
+button{flex:1;padding:14px;border:none;border-radius:10px;font-size:16px;
+     font-weight:700;cursor:pointer;font-family:inherit;}
+.primary{background:#065A82;color:#fff;} .ghost{background:#fff;color:#5A6674;border:1.5px solid #CFD8DE;}
+button:disabled{opacity:.6;cursor:default;}
+.note{background:#FFF8EC;border-left:4px solid #D98A0B;border-radius:8px;
+     padding:12px 14px;font-size:13.5px;margin-top:16px;}
+.link{background:#EAF1FC;border:1px solid #CFE0F7;border-radius:10px;padding:14px;margin-top:16px;}
+.link input{font-size:13px;margin-bottom:8px;background:#fff;}
+.fb{background:#E6F4EC;border:1px solid #BFE3CE;border-radius:12px;padding:16px;
+     white-space:pre-wrap;font-size:14.5px;color:#14603f;margin-top:10px;}
+.kv{margin-bottom:12px;} .kv b{display:block;font-size:12px;color:#065A82;}
+@media print{ body{background:#fff;padding:0;} .box{box-shadow:none;max-width:100%;}
+  .btns,.rail,.note,.link,.up{display:none !important;} }
+</style>
+</head>
+<body>
+<div class="box" id="app"></div>
+
+<script>
+/* ═══════════ ★수정 구역 (여기만 고치면 됩니다) ═══════════ */
+const CONFIG = {
+  // ★수정 1) 앱스크립트를 배포하고 받은 주소(.../exec)를 따옴표 안에 붙여넣기
+  submitUrl: "https://script.google.com/macros/s/AKfycbxGuF3tAz68NUwfMEcM2VL2quVmgpmrvd8KJXhI7ZVfB59x6gbYKJLpN4_LJqn_DFQF/exec",
+
+  // ★수정 2) 2페이지 → 3페이지로 넘어갈 때 쓸 암호
+  gatePassword: "data"
+};
+/* ════════════════════════════════════════════════════════ */
+
+const S = { page:0, name:"", sid:"", img:"", desc:"", token:"", sent:false };
+const KEY = "class_report_v1";
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+function load(){ try{ const v=localStorage.getItem(KEY); if(v) Object.assign(S, JSON.parse(v)); }catch(e){} }
+function esc(t){ return String(t==null?"":t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function rail(n){ let h='<div class="rail">'; for(let i=0;i<3;i++) h+=`<div class="seg ${i<=n?'on':''}"></div>`; return h+'</div>'; }
+
+/* ── 화면 그리기 ── */
+function render(){
+  const a=document.getElementById('app');
+  if(S.page===0){
+    a.innerHTML = rail(0)+`
+      <h1>1단계 · 내 정보 입력</h1>
+      <p class="s">이름과 학번을 입력한 뒤 다음으로 넘어가세요.</p>
+      <label>이름</label><input type="text" id="f_name" value="${esc(S.name)}" placeholder="이름">
+      <label>학번</label><input type="text" id="f_sid" value="${esc(S.sid)}" placeholder="예) 1801">
+      <div class="btns"><button class="primary" onclick="next0()">다음 →</button></div>`;
+  }
+  else if(S.page===1){
+    a.innerHTML = rail(1)+`
+      <h1>2단계 · 그림과 설명</h1>
+      <p class="s">활동 결과 그림을 올리고, 무엇을 나타내는지 설명해 주세요.</p>
+      <label>그림 올리기</label>
+      <div class="up" onclick="document.getElementById('f_img').click()">
+        <div style="font-size:26px">🖼️</div>
+        <div style="font-weight:700;font-size:14px">여기를 눌러 그림 선택</div>
+        <div style="font-size:12px;color:#889">사진·캡처 이미지 모두 가능</div>
+        <input type="file" id="f_img" accept="image/*" onchange="onImg(this)">
+      </div>
+      <img id="prev" src="${S.img||''}" style="display:${S.img?'block':'none'}">
+      <label>그림 설명</label>
+      <textarea id="f_desc" placeholder="그림이 무엇을 나타내는지, 어떤 점을 알 수 있는지 적어 주세요.">${esc(S.desc)}</textarea>
+      <div class="note">🔒 다음 단계로 넘어가려면 <b>선생님이 알려주는 암호</b>가 필요합니다. 한 번 넘어가면 돌아올 수 없어요.</div>
+      <div class="btns">
+        <button class="ghost" onclick="go(0)">← 이전</button>
+        <button class="primary" onclick="next1()">다음 →</button>
+      </div>`;
+  }
+  else {
+    a.innerHTML = rail(2)+`
+      <h1>3단계 · 확인 후 제출</h1>
+      <p class="s">작성한 내용을 확인하고 제출하세요. 제출하면 AI 선생님 피드백이 자동으로 만들어집니다.</p>
+      <div class="kv"><b>이름 · 학번</b>${esc(S.name)} · ${esc(S.sid)}</div>
+      ${S.img?`<div class="kv"><b>그림</b><img src="${S.img}" style="max-width:100%;border-radius:10px"></div>`:''}
+      <div class="kv"><b>그림 설명</b>${esc(S.desc)||'(작성 안 함)'}</div>
+      <div class="btns">
+        <button class="primary" id="btn" onclick="submitAll()">${S.sent?'다시 제출':'제출하기'}</button>
+        <button class="ghost" onclick="window.print()">PDF로 저장</button>
+      </div>
+      <div class="note">PDF 저장: 인쇄 창이 열리면 대상(프린터)을 <b>'PDF로 저장'</b>으로 선택하세요.</div>
+      ${S.sent&&S.token?`
+      <div class="link">
+        <b style="font-size:13px;color:#0F3D73">🔗 내 보고서·피드백 링크 (꼭 저장!)</b>
+        <p style="font-size:12.5px;color:#5A6674;margin:6px 0 8px">이 링크로 언제든 다시 열어 선생님 피드백을 볼 수 있어요.</p>
+        <input type="text" id="mylink" readonly value="${esc(myLink())}">
+        <div class="btns" style="margin-top:0">
+          <button class="ghost" onclick="copyLink()">링크 복사</button>
+          <button class="primary" onclick="location.href=myLink()">피드백 보기 →</button>
+        </div>
+      </div>`:''}`;
+  }
+}
+
+/* ── 단계 이동 ── */
+function go(n){ S.page=n; save(); render(); window.scrollTo(0,0); }
+function next0(){
+  S.name=document.getElementById('f_name').value.trim();
+  S.sid=document.getElementById('f_sid').value.trim();
+  if(!S.name||!S.sid){ alert('이름과 학번을 입력해 주세요.'); return; }
+  save(); go(1);
+}
+function next1(){
+  S.desc=document.getElementById('f_desc').value.trim(); save();
+  const pw=prompt('선생님이 알려준 암호를 입력하세요.');
+  if(pw===null) return;
+  if(pw.trim()!==CONFIG.gatePassword){ alert('암호가 올바르지 않습니다.'); return; }
+  go(2);
+}
+
+/* ── 그림 업로드 (용량 자동 축소) ── */
+function onImg(input){
+  const f=input.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width,h=img.height,M=1000;
+      if(w>M||h>M){ const k=Math.min(M/w,M/h); w=Math.round(w*k); h=Math.round(h*k); }
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      S.img=c.toDataURL('image/jpeg',0.8); save();
+      const p=document.getElementById('prev'); p.src=S.img; p.style.display='block';
+    };
+    img.src=e.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+/* ── 제출 ── */
+function myLink(){ return location.origin+location.pathname+'?id='+S.token; }
+function copyLink(){ const el=document.getElementById('mylink'); el.select(); document.execCommand('copy'); alert('링크가 복사되었습니다.'); }
+function newToken(){
+  if(window.crypto&&crypto.randomUUID) return crypto.randomUUID().replace(/-/g,'').slice(0,16);
+  return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+}
+async function submitAll(){
+  if(!CONFIG.submitUrl){ alert('제출 주소가 설정되지 않았습니다. 선생님께 문의하세요.'); return; }
+  if(!S.token){ S.token=newToken(); save(); }
+  const b=document.getElementById('btn'); b.disabled=true; b.textContent='제출 중...';
+  try{
+    await fetch(CONFIG.submitUrl,{ method:'POST', mode:'no-cors',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({ token:S.token, link:myLink(),
+        name:S.name, sid:S.sid, desc:S.desc, img:S.img })});
+    S.sent=true; save();
+    alert('제출되었습니다!\n아래에 생긴 내 링크를 꼭 저장하세요.\n잠시 후 그 링크에서 피드백을 볼 수 있어요.');
+  }catch(e){ alert('제출 중 오류가 발생했습니다. 인터넷 연결을 확인해 주세요.'); }
+  finally{ b.disabled=false; render(); }
+}
+
+/* ── 링크로 들어왔을 때: 보고서 + 피드백 보기 ── */
+function jsonp(params){
+  return new Promise((ok,no)=>{
+    const cb='cb'+Math.random().toString(36).slice(2);
+    const s=document.createElement('script');
+    const t=setTimeout(()=>{clean();no(new Error('시간 초과'));},60000);
+    function clean(){ try{delete window[cb];}catch(e){} s.remove(); clearTimeout(t); }
+    window[cb]=d=>{ok(d);clean();};
+    s.onerror=()=>{clean();no(new Error('네트워크 오류'));};
+    s.src=CONFIG.submitUrl+'?'+Object.entries(params).map(([k,v])=>k+'='+encodeURIComponent(v)).join('&')+'&callback='+cb;
+    document.body.appendChild(s);
+  });
+}
+async function showResult(token,tryn){
+  const a=document.getElementById('app');
+  a.innerHTML='<p style="text-align:center;color:#667;padding:30px 0">보고서를 불러오는 중...</p>';
+  try{
+    const r=await jsonp({action:'load',id:token});
+    if(!(r&&r.ok&&r.record)) throw new Error((r&&r.error)||'없음');
+    const d=r.record;
+    a.innerHTML=`
+      <h1>${esc(d.name)} 님의 보고서</h1>
+      <p class="s">제출 ${esc(d.submittedAt)}</p>
+      <div class="kv"><b>이름 · 학번</b>${esc(d.name)} · ${esc(d.sid)}</div>
+      ${d.imgUrl?`<div class="kv"><b>그림</b><br><a href="${esc(d.imgUrl)}" target="_blank">그림 열기 ↗</a></div>`:''}
+      <div class="kv"><b>그림 설명</b>${esc(d.desc)||'(작성 안 함)'}</div>
+      <div class="kv" style="margin-top:18px"><b>💬 선생님 피드백</b></div>
+      ${d.feedback?`<div class="fb">${esc(d.feedback)}</div>`
+                  :`<div class="note">피드백을 만드는 중입니다. 1~2분 뒤 새로고침 해주세요.</div>`}
+      <div class="btns"><button class="ghost" onclick="window.print()">PDF로 저장</button></div>`;
+  }catch(e){
+    if(tryn<3){ setTimeout(()=>showResult(token,tryn+1),2000); return; }
+    a.innerHTML='<p style="color:#667;padding:20px 0">아직 보고서를 찾지 못했어요. 방금 제출했다면 1~2분 뒤 새로고침 해주세요.</p>';
+  }
+}
+
+/* ── 시작 ── */
+load();
+const urlToken=new URLSearchParams(location.search).get('id');
+if(urlToken) showResult(urlToken,0); else render();
+</script>
+</body>
+</html>
